@@ -13,7 +13,8 @@ public class DataConsumer {
 
     private final int LIMIT_COUNT_DATA = 10;
 
-    public volatile static Set loadData = new HashSet();
+    public volatile Set loadData = new HashSet();
+    public volatile Map<Integer, List> pendingData = new HashMap<>();
 
     public DataConsumer(PoolData poolData) {
         this.poolData = poolData;
@@ -41,7 +42,8 @@ public class DataConsumer {
 
     //Собирает потребляет данные и при накопленние больше чем LIMIT_COUNT_DATA записывает их в файл
     private <T extends IDataParse> void worker(int group, File jsonFile) {
-        List<T> listData = new ArrayList();
+        List<T> listData = new ArrayList<>();
+        pendingData.put(group, listData);
 
         while (true) {
             poolData.waitWork(group);
@@ -68,22 +70,22 @@ public class DataConsumer {
 
     //Потребляет все
     public void consumeAll(){
-        Iterator<Map.Entry<Integer, List<IDataParse>>> iterator = poolData.getIterator();
+        Iterator<Map.Entry<Integer, List>> iterator = pendingData.entrySet().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<Integer, List<IDataParse>> entry = iterator.next();
+            Map.Entry<Integer, List> entry = iterator.next();
 
             List list = entry.getValue();
-            synchronized (list) {
-                list.notifyAll();
+            if (list.isEmpty()) {
+                continue;
             }
-
             loadData.add(entry.getKey());
+            poolData.notifyList(entry.getKey());
         }
 
-        while (DataConsumer.loadData.size() > 0){
+        while (loadData.size() > 0){
             try {
                 Thread.sleep(100);
-            } catch (InterruptedException e) {
+            } catch (InterruptedException ignore) {
             }
         }
     }

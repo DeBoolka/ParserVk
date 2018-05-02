@@ -61,11 +61,16 @@ public class WebParser {
     }
 
     public String buildHtml(){
+        parser.setPause(true);
         dataConsumer.consumeAll();
-        return webBuilder.build();
+        String htmlUrl = webBuilder.build();
+        parser.setPause(false);
+        return htmlUrl;
     }
 
     public void exit(){
+        parser.setPause(true);
+        dataConsumer.consumeAll();
         parser.exit();
     }
 }

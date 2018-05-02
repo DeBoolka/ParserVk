@@ -7,7 +7,7 @@ public class PoolData {
     private volatile Map<Integer, List<IDataParse>> pool = new HashMap<>();
 
     //todo: доделать выгрузку
-    public volatile boolean isUnload;
+    public volatile boolean isUnload = false;
 
     //Добавляет файл в очередь на запись
     public boolean push(IDataParse data) {
@@ -44,10 +44,11 @@ public class PoolData {
     public void waitWork(int group) {
         List<IDataParse> listParse = getQueue(group);
         synchronized (listParse) {
-            while (listParse.isEmpty()) {
+            isUnload = false;
+            while (listParse.isEmpty() && !isUnload) {
                 try {
                     listParse.wait();
-                } catch (InterruptedException e) {
+                } catch (InterruptedException ignore) {
                 }
             }
         }
@@ -67,7 +68,27 @@ public class PoolData {
     }
 
     //Отдает итератор очередей
-    public Iterator<Map.Entry<Integer, List<IDataParse>>> getIterator(){
+    private Iterator<Map.Entry<Integer, List<IDataParse>>> getIterator(){
         return pool.entrySet().iterator();
+    }
+
+    public void notifyList(int group) {
+        List list = getQueue(group);
+        synchronized (list) {
+            isUnload = true;
+            list.notifyAll();
+        }
+    }
+
+    public void notifyAllList() {
+        Iterator<Map.Entry<Integer, List<IDataParse>>> iterator = getIterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Integer, List<IDataParse>> entry = iterator.next();
+            List list = entry.getValue();
+            synchronized (list) {
+                isUnload = true;
+                list.notifyAll();
+            }
+        }
     }
 }
