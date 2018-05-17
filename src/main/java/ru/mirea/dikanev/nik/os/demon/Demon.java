@@ -26,8 +26,8 @@ public class Demon {
             try {
                 Demon demon = new Demon();
 
-                demon.spy("B:\\JavaProjects\\ParseDriver\\src\\main\\java\\ru\\mirea\\dikanev\\nik\\os\\data\\ParseText.jsondemon", new DataParse.NewsText[1]);
-                demon.spy("B:\\JavaProjects\\ParseDriver\\src\\main\\java\\ru\\mirea\\dikanev\\nik\\os\\data\\ParseLink.jsondemon", new DataParse.NewsLink[1]);
+                demon.spy("B:\\JavaProjects\\ParseDriver\\src\\main\\java\\ru\\mirea\\dikanev\\nik\\os\\data\\ParseText.jsondemon", new DataParse.NewsLikes[1]);
+                demon.spy("B:\\JavaProjects\\ParseDriver\\src\\main\\java\\ru\\mirea\\dikanev\\nik\\os\\data\\ParseLink.jsondemon", new DataParse.NewsComments[1]);
                 demon.spy("B:\\JavaProjects\\ParseDriver\\src\\main\\java\\ru\\mirea\\dikanev\\nik\\os\\data\\ParseImg.jsondemon", new DataParse.NewsPhoto[1]);
 
                 System.out.println("Start Demon...");

@@ -4,6 +4,7 @@ import ru.mirea.dikanev.nik.os.IDataParse;
 import ru.mirea.dikanev.nik.os.DataParse.*;
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -53,13 +54,13 @@ public class SQLController {
             IDataParse dataParse = iterator.next();
 
             switch (dataParse.getGroup()) {
-                case IDataParse.TEXT:
-                    insertText((NewsText) dataParse);
-                    System.out.println("Write text id: " + dataParse.getId());
+                case IDataParse.LIKE:
+                    insertLike((NewsLikes) dataParse);
+                    System.out.println("Write like id: " + dataParse.getId());
                     break;
-                case IDataParse.LINK:
-                    insertLink((NewsLink) dataParse);
-                    System.out.println("Write link id: " + dataParse.getId());
+                case IDataParse.COMMENT:
+                    insertComment((NewsComments) dataParse);
+                    System.out.println("Write comment id: " + dataParse.getId());
                     break;
                 case IDataParse.IMG:
                     insertPhoto((NewsPhoto) dataParse);
@@ -70,53 +71,133 @@ public class SQLController {
 
     }
 
+    /*private List<IDataParse> getUniqueDataParses(List<IDataParse> dataParses) throws Exception {
+        if(dataParses.size() == 0){
+            return dataParses;
+        }
+        int group = dataParses.get(0).getGroup();
+
+        class Id{
+            public int id;
+            public String fId;
+
+            public Id(int id, String fId) {
+                this.id = id;
+                this.fId = fId;
+            }
+        }
+
+        //Подготовка запроса на получение идентификаторов в бд
+        final StringBuilder sqlBuilder = new StringBuilder();
+        sqlBuilder.append("SELECT * FROM posts WHERE");
+        dataParses.forEach((e) -> {
+            if(e == dataParses.get(0)){
+                sqlBuilder.append(" OR");
+            }
+            sqlBuilder.append(" id_vk_post = ").append(e.getId());
+        });
+
+        //Получение идентификаторов в бд
+        Statement stmt = connection.createStatement();
+        ResultSet res = stmt.executeQuery(sqlBuilder.toString());
+        List<Id> arrayId = new ArrayList<>();
+        while (res.next()){
+            Id id = new Id(res.getInt("id"), res.getString("id_vk_post"));
+            arrayId.add(id);
+            dataParses.remove(id.fId);
+        }
+        res.close();
+
+        //Поиск уникальных
+        StringBuilder sqlBuild = new StringBuilder();
+        sqlBuild.append("SELECT * FROM ");
+        switch (group){
+            case IDataParse.LIKE:
+                sqlBuild.append("link");
+                break;
+            case IDataParse.COMMENT:
+                sqlBuild.append("text");
+                break;
+            case IDataParse.IMG:
+                sqlBuild.append("photo");
+                break;
+        }
+        sqlBuild.append(" WHERE");
+        arrayId.forEach((e) -> {
+            if(e.equals(arrayId.get(0))){
+                sqlBuild.append(" OR");
+            }
+            sqlBuild.append(" id = ").append(Integer.toString(e.id));
+        });
+
+        //Получение уникальных запросов в бд
+        stmt = connection.createStatement();
+        List<IDataParse> uniqueDataParse = new ArrayList<>();
+        res = stmt.executeQuery(sqlBuild.toString());
+        while (res.next()){
+            switch (dataParses.get(0).getGroup()){
+                case IDataParse.LIKE:
+                    uniqueDataParse.add(new NewsLikes())
+                    break;
+                case IDataParse.COMMENT:
+                    sqlBuild.append("");
+                    break;
+                case IDataParse.IMG:
+                    sqlBuild.append("");
+                    break;
+            }
+            arrayId.add(res.getInt("id"));
+        }
+        res.close();
+
+    }*/
+
     //Записывает в базу ссылки
-    private String insertLink(NewsLink link) throws Exception{
+    private String insertComment(NewsComments comment) throws Exception{
         Statement stmt;
         String sql;
 
-        if(checkPostBD(link.getId(), "link")){
-            return link.getId();
+        if(checkPostBD(comment.getId(), "text")){
+            return comment.getId();
         }
 
-        stmt = connection.createStatement();
-        sql = "INSERT INTO link(id, link, author) " +
-                "VALUES((SELECT id FROM posts WHERE id_vk_post = '" + link.getId() + "'LIMIT 1), '" + link.getLink() + "', '" + link.getAuthor() + "')";
-        stmt.executeUpdate(sql);
-
-        PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO links VALUES ((SELECT id FROM posts WHERE id_vk_post = ? LIMIT 1), ?)");
-        link.getLinks().forEach((e) -> {
+        PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO text VALUES ((SELECT id FROM posts WHERE id_vk_post = ? LIMIT 1), ?)");
+        preparedStatement.setString(1, comment.getId());
+        comment.getComments().forEach((e) -> {
             try {
-                preparedStatement.setString(1, link.getId());
                 preparedStatement.setString(2, e);
                 preparedStatement.executeUpdate();
             } catch (Exception ex) {
             }
         });
+        preparedStatement.close();
 
-        return link.getId();
+        return comment.getId();
     }
 
     //Записывает в базу текст
-    private String insertText(NewsText text) throws Exception{
+    private String insertLike(NewsLikes like) throws Exception{
         Statement stmt;
-        String sql;
+        String sql = "";
 
-        if(checkPostBD(text.getId(), "text")){
-            return text.getId();
+        if(checkPostBD(like.getId(), "link")){
+            return like.getId();
         }
 
-        sql = "INSERT INTO text(id, text) " +
-                "VALUES((SELECT id FROM posts WHERE id_vk_post = '" + text.getId() + "' LIMIT 1), '" + text.getText() + "')";
-        stmt = connection.createStatement();
-        try {
-            stmt.executeUpdate(sql);
-        } catch (SQLException ignored) {
-        } finally {
-            stmt.close();
-        }
+        PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO link VALUES ((SELECT id FROM posts WHERE id_vk_post = ? LIMIT 1), ?, ?, ?)");
+        preparedStatement.setString(1, like.getId());
+        like.getLikes().forEach((e) -> {
+            try {
+                preparedStatement.setString(2, e.getLink());
+                preparedStatement.setString(3, e.getLogin());
+                preparedStatement.setString(4, e.getName());
+                preparedStatement.executeUpdate();
+            } catch (Exception ex) {
+            }
+        });
+        preparedStatement.close();
 
-        return text.getId();
+        return like.getId();
     }
 
     //Записывает в базу фото
@@ -131,7 +212,7 @@ public class SQLController {
         PreparedStatement preparedStatement =  connection.prepareStatement(sql);
         preparedStatement.setString(1, photo.getId());
 
-        List<String> links = photo.getPathPhoto();
+        List<String> links = new ArrayList<>(List.of(photo.getPathPhoto()));
         links.forEach((e) -> {
             try {
                 preparedStatement.setString(2, photo.getAbsolutePathPhoto(e));

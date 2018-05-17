@@ -6,10 +6,6 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.*;
 
 public class Parser implements Runnable {
@@ -19,7 +15,7 @@ public class Parser implements Runnable {
     private boolean checkParse;
     private volatile boolean isPause = false;
 
-    private final String url = "https://vk.com";
+    private final String url = "https://www.instagram.com/";
     private final String pathPhoto = "./src/main/java/ru/mirea/dikanev/nik/os/img/";
 
     private Map<String, LastElement> lastDataParse = new HashMap<>();
@@ -42,29 +38,22 @@ public class Parser implements Runnable {
         driver.get(url);
 
         Thread.sleep(2000);
-        driver.findElement(By.id("index_email")).sendKeys(PrivateConfig.login);
+        driver.findElement(By.className("_g9ean")).findElement(By.tagName("a")).click();
 
         Thread.sleep(2000);
-        driver.findElement(By.id("index_pass")).sendKeys(PrivateConfig.password);
-        driver.findElement(By.className("login_mobile_header")).click();
+        List<WebElement> elements = driver.findElements(By.className("_ph6vk"));
+        elements.get(0).sendKeys(PrivateConfig.login);
+
+        Thread.sleep(2000);
+        elements.get(1).sendKeys(PrivateConfig.password);
+        driver.findElement(By.className("_8fi2q")).click();
 
         Thread.sleep(1000);
-        driver.findElement(By.id("index_login_button")).click();
+        driver.findElement(By.className("_gexxb")).click();
 
-//        WebDriverWait wait = new WebDriverWait(driver, 10);
-//        wait.until((By.id("menu")));
-        while (true) {
-            Thread.sleep(2000);
-            System.out.println(driver.getCurrentUrl());
-            if (driver.getCurrentUrl().equals("https://vk.com/")) {
-                continue;
-            } else if(!driver.getCurrentUrl().equals("https://vk.com/feed")){
-                driver.quit();
-                throw new Exception("Не верный логин или пароль");
-            } else {
-                break;
-            }
-        }
+        Thread.sleep(2000);
+//        driver.get("https://www.instagram.com/ksenia_dikaneva/");
+        driver.get("https://www.instagram.com/_agentgirl_/");
 
     }
 
@@ -74,7 +63,7 @@ public class Parser implements Runnable {
         int parsNewsCount = 0;
         checkParse = true;
         while (checkParse) {
-            if(isPause){
+            if (isPause) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException ignore) {
@@ -98,59 +87,75 @@ public class Parser implements Runnable {
 
     //Парсинг элементов
     private int parseNews(int parsNewsCount) {
-        List<WebElement> elements = driver.findElements(By.className("feed_row"));
+        List<WebElement> elements = driver.findElements(By.className("_mck9w"));
         if (parsNewsCount < elements.size()) {
             elements = elements.subList(parsNewsCount, elements.size());
         } else {
             return parsNewsCount;
         }
 
-        //Итерация по только что распарсенным элементам
-        //Вместо  for (WebElement element : elements)
         elements.forEach((element) -> {
             try {
-                LastElement oldElement = lastDataParse.computeIfAbsent("feed_row", k -> new LastElement());
-                if (oldElement.element != null) {
-                    String oldId = oldElement.element.findElement(By.className("_post")).getAttribute("id");
-                    String newId = element.findElement(By.className("_post")).getAttribute("id");
+                Thread.sleep(1000);
+                element.click();
 
-                    if (oldId.equals(newId)) {
-                        return;
-                    }
-                }
-
-                LastElement lastElement = new LastElement<DataParse>();
-                lastElement.element = element;
-
-                if (oldElement.dataParse == null) {
-                    oldElement.dataParse = new DataParse("-1");
-                }
-                DataParse news = new DataParse(Integer.toString(Integer.valueOf(oldElement.dataParse.getId()) + 1));
+                DataParse news = new DataParse(Integer.toString(element.findElement(By.tagName("img")).getAttribute("src").hashCode()));
                 news.photo.setDirPhoto(pathPhoto);
 
                 List<Thread> workParseThData = new ArrayList<>();
-                //Парсинг текста поста
-                workParseThData.add( new Thread(() -> news.text = (DataParse.NewsText) news.text.parse(element, poolData)));
-                //Парсинг ссылки на пост
-                workParseThData.add( new Thread(() -> news.link = (DataParse.NewsLink) news.link.parse(element, poolData)));
+                //Парсинг лайков
+                Boolean isParseComment = false;
+                workParseThData.add(new Thread(() -> {
+                    synchronized (isParseComment) {
+                        try {
+                            isParseComment.wait();
+                        } catch (InterruptedException ignore) {
+                        }
+                    }
+                    WebElement elLikes = waitShowWebElement("_nzn1h");
+                    if(elLikes == null){
+                        return;
+                    }
+                    elLikes.click();
+                    elLikes = waitShowWebElement("_1u2kv");
+                    waitShowWebElement("_f5wpw");
+                    if(elLikes == null){
+                        return;
+                    }
+                    news.text = (DataParse.NewsLikes) news.text.parse(elLikes, poolData);
+                }));
                 //Парсинг картинок в посте
-                workParseThData.add( new Thread(() -> news.photo = (DataParse.NewsPhoto) news.photo.parse(element, poolData)));
+                workParseThData.add(new Thread(() -> news.photo = (DataParse.NewsPhoto) news.photo.parse(element, poolData)));
+                //Парсинг comments
+                workParseThData.add(new Thread(() -> {
+                    WebElement elComments = waitShowWebElement("_784q7");
+                    if (elComments == null) {
+                        synchronized (isParseComment)  {
+                            isParseComment.notifyAll();
+                        }
+                        return;
+                    }
+                    news.comments = (DataParse.NewsComments) news.comments.parse(elComments, poolData);
+                    synchronized (isParseComment)  {
+                        isParseComment.notifyAll();
+                    }
+                }));
 
                 workParseThData.forEach(Thread::start);
                 workParseThData.forEach((t) -> {
                     try {
                         t.join();
-                    } catch (InterruptedException e) {
+                    } catch (InterruptedException ignored) {
                     }
                 });
 
-                lastElement.dataParse = news;
-                lastDataParse.remove("feed_row");
-                lastDataParse.put("feed_row", lastElement);
-
-            } catch (Exception e) {
+                Thread.sleep(1000);
+                driver.findElements(By.tagName("button"))
+                        .stream()
+                        .filter((e) -> e.getText().equals("Закрыть"))
+                        .forEach(WebElement::click);
+            } catch (InterruptedException ignore) {
             }
-
         });
 
         return parsNewsCount + elements.size();
@@ -161,8 +166,26 @@ public class Parser implements Runnable {
     }
 
     //Ставит парсинг на паузу
-    public void setPause(boolean pauseMod){
+    public void setPause(boolean pauseMod) {
         this.isPause = pauseMod;
+    }
+
+    //Ожидание появление элемента
+    private WebElement waitShowWebElement(String className){
+        List<WebElement> elements = null;
+        long startTime = System.currentTimeMillis();
+        while(System.currentTimeMillis() - startTime < 5000){
+            elements = driver.findElements(By.className(className));
+            if (elements.size() > 0) {
+                break;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ignore) {
+            }
+        }
+
+        return elements.size() > 0 ? elements.get(0) : null;
     }
 
     //Прошлый распарсенный элемент
@@ -172,7 +195,7 @@ public class Parser implements Runnable {
     }
 
     public static class PrivateConfig {
-        public static String login = "";
-        public static String password = "";
+        public static String login = "wofimin@bitwhites.top";
+        public static String password = "Фыва12345";
     }
 }

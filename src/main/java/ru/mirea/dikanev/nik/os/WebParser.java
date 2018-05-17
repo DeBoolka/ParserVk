@@ -38,13 +38,13 @@ public class WebParser {
         File fileLink = new File(".\\src\\main\\java\\ru\\mirea\\dikanev\\nik\\os\\data\\ParseLink.json");
         File fileImg = new File(".\\src\\main\\java\\ru\\mirea\\dikanev\\nik\\os\\data\\ParseImg.json");
 
-        dataConsumer.run(IDataParse.TEXT, fileText);
-        dataConsumer.run(IDataParse.LINK, fileLink);
+        dataConsumer.run(IDataParse.LIKE, fileText);
+        dataConsumer.run(IDataParse.COMMENT, fileLink);
         dataConsumer.run(IDataParse.IMG, fileImg);
 
         WebBuilder webBuilder = new WebBuilder();
-        webBuilder.register(fileLink, new ArrayList<DataParse.NewsLink>(), new DataParse.NewsLink[1]);
-        webBuilder.register(fileText, new ArrayList<DataParse.NewsText>(), new DataParse.NewsText[1]);
+        webBuilder.register(fileLink, new ArrayList<DataParse.NewsComments>(), new DataParse.NewsComments[1]);
+        webBuilder.register(fileText, new ArrayList<DataParse.NewsLikes>(), new DataParse.NewsLikes[1]);
         webBuilder.register(fileImg, new ArrayList<DataParse.NewsPhoto>(), new DataParse.NewsPhoto[1]);
 
         this.parser = parser;
@@ -64,6 +64,7 @@ public class WebParser {
         parser.setPause(true);
         dataConsumer.consumeAll();
         String htmlUrl = webBuilder.build();
+        parser.setPause(false);
         parser.setPause(false);
         return htmlUrl;
     }

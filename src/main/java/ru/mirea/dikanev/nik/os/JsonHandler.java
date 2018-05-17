@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 public class JsonHandler {
-    //Проверяет естт ли в json файле поле с заданным значением, не выгружая весь файл в память
+    //Проверяет есть ли в json файле поле с заданным значением, не выгружая весь файл в память
     public static boolean findJsonAttribute(String attribute, String val, File file){
         attribute = "\"" + attribute;
         Set<Character> ignoreList = new HashSet<>(List.of(' ', '\t', '\n', '\r', ':'));

@@ -5,8 +5,8 @@ import org.openqa.selenium.WebElement;
 public interface IDataParse {
 
     //Группы объекта
-    int TEXT = 1;
-    int LINK = 2;
+    int LIKE = 1;
+    int COMMENT = 2;
     int IMG = 3;
 
     //Возвращает тип объекта

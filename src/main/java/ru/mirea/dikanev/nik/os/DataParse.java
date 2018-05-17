@@ -16,9 +16,9 @@ public class DataParse implements IMasterDataParse {
 
     private String id;
 
-    public NewsText text;
+    public NewsLikes text;
     public NewsPhoto photo;
-    public NewsLink link;
+    public NewsComments comments;
 
     public DataParse() {
         this.id = null;
@@ -44,9 +44,9 @@ public class DataParse implements IMasterDataParse {
 
     //Инициализация переменных классов, которые парсим
     private void init() {
-        text = new NewsText(id, IDataParse.TEXT);
+        text = new NewsLikes(id, IDataParse.LIKE);
         photo = new NewsPhoto(id, IDataParse.IMG);
-        link = new NewsLink(id, IDataParse.LINK);
+        comments = new NewsComments(id, IDataParse.COMMENT);
     }
 
     //Базовый класс элементов, которые парсим
@@ -80,43 +80,87 @@ public class DataParse implements IMasterDataParse {
 
     //region Классы, которые парсим
     //Класс парсинга текста
-    public class NewsText extends BaseParseClass implements IDataParse {
+    public class NewsLikes extends BaseParseClass implements IDataParse {
 
-        private String text;
+        private List<Like> likes;
 
-        public NewsText(String id, int group) {
+        public class Like {
+
+            private String name;
+            private String login;
+            private String link;
+
+            public String getName() {
+                return name;
+            }
+
+            public void setName(String name) {
+                this.name = name;
+            }
+
+            public String getLogin() {
+                return login;
+            }
+
+            public void setLogin(String login) {
+                this.login = login;
+            }
+
+            public String getLink() {
+                return link;
+            }
+
+            public void setLink(String link) {
+                this.link = link;
+            }
+        }
+
+        public NewsLikes(String id, int group) {
             super(id, group);
         }
 
-        public String getText() {
-            return text;
+        public List<Like> getLikes() {
+            return likes;
         }
 
-        public void setText(String text) {
-            this.text = text;
+        public void setLikes(List<Like> likes) {
+            this.likes = likes;
         }
 
         public IDataParse parse(WebElement element, PoolData poolData) {
-            try {
-                String idPost = element.findElement(By.className("_post")).getAttribute("id");
-                String text = element.findElement(By.className("wall_post_text")).getText();
+            likes = new ArrayList<>();
+            element.findElements(By.className("_6e4x5")).forEach((e) -> {
+                Like like = new Like();
+                WebElement buffElement = findElement(e, By.className("_9mmn5 "));
+                like.setName((buffElement != null) ? buffElement.getText() : "");
+                buffElement = findElement(e, By.className("_2g7d5 "));
+                like.setLogin((buffElement != null) ? buffElement.getText() : "");
+                like.setLink((buffElement != null) ? buffElement.getAttribute("href") : "");
 
-                NewsText newsText = new NewsText(getId(), getGroup());
-                newsText.setText(text);
-                newsText.setId(idPost);
-                poolData.push(newsText);
+                likes.add(like);
+            });
 
-                return newsText;
-
-            } catch (Exception e) {
-                return this;
+            if(likes.size() > 0) {
+                NewsLikes newsLikes = new NewsLikes(getId(), getGroup());
+                newsLikes.setLikes(likes);
+                poolData.push(newsLikes);
             }
 
+            return this;
         }
 
         @Override
         public String getHtml() {
-            return "<p>Text: " + text + "\n";
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("<p>Likes:<p><select>");
+            likes.forEach((e) -> stringBuilder.append("<option>")
+                    .append("[").append(e.login).append("]\n")
+                    .append("[").append(e.name).append("]\n")
+                    .append("[").append(e.link).append("]")
+                    .append("</option>"));
+            stringBuilder.append("</select>");
+
+            return stringBuilder.toString();
         }
 
     }
@@ -124,7 +168,7 @@ public class DataParse implements IMasterDataParse {
     //Класс парсинга фото
     public class NewsPhoto extends BaseParseClass implements IDataParse {
 
-        private List<String> pathPhoto;
+        private String pathPhoto;
         private transient String dirPhoto;
 
         public NewsPhoto(String id, int group) {
@@ -132,7 +176,7 @@ public class DataParse implements IMasterDataParse {
         }
 
         //region get-set functions
-        public List<String> getPathPhoto() {
+        public String getPathPhoto() {
             return pathPhoto;
         }
 
@@ -140,7 +184,7 @@ public class DataParse implements IMasterDataParse {
             this.dirPhoto = dirPhoto;
         }
 
-        public void setPathPhoto(List<String> pathPhoto) {
+        public void setPathPhoto(String pathPhoto) {
             this.pathPhoto = pathPhoto;
         }
 
@@ -150,115 +194,59 @@ public class DataParse implements IMasterDataParse {
         //endregion
 
         public IDataParse parse(WebElement element, PoolData poolData) {
-            try {
-                String idPost = element.findElement(By.className("_post")).getAttribute("id");
-                final List<String> linksImg = new ArrayList<>();
-                element.findElement(By.className("wall_text"))
-                        .findElements(By.className("image_cover"))
-                        .forEach((e) -> linksImg.add(e.getCssValue("background-image")));
-                if (linksImg.size() == 0) {
-                    return this;
-                }
 
-                final List<String> localLinksPhoto = new ArrayList<>();
-                linksImg.forEach((e) -> {
-                    e = e.substring(5, e.length() - 2);
-                    String imgName = String.valueOf(System.currentTimeMillis()) + String.valueOf((int)(Math.random() * 1000)) + e.substring(e.length() - 4);
-                    String absPathPhoto = dirPhoto + imgName;
+            String localLinkPhoto = dirPhoto + String.valueOf(System.currentTimeMillis()) + String.valueOf((int) (Math.random() * 1000)) + ".jpg";
+            new Thread(new LoadPhoto(element.findElement(By.tagName("img")).getAttribute("src"), localLinkPhoto)).start();
 
-                    //Сохранение изображения
-                    new Thread(new LoadPhoto(e ,absPathPhoto)).start();
-                    localLinksPhoto.add(absPathPhoto);
-                });
+            NewsPhoto newsPhoto = new NewsPhoto(getId(), getGroup());
+            newsPhoto.setPathPhoto(localLinkPhoto);
+            poolData.push(newsPhoto);
 
-
-                NewsPhoto newsPhoto = new NewsPhoto(getId(), getGroup());
-                newsPhoto.setPathPhoto(localLinksPhoto);
-                newsPhoto.setId(idPost);
-                poolData.push(newsPhoto);
-
-                return newsPhoto;
-
-            } catch (Exception e) {
-                return this;
-            }
+            return newsPhoto;
         }
 
         @Override
         public String getHtml() {
             final StringBuilder buildPhoto = new StringBuilder();
-            pathPhoto.forEach((e) -> buildPhoto.append("<p><img src=\"").append(e).append("\" alt=\"\">\n"));
+            buildPhoto.append("<p><img src=\"").append(pathPhoto).append("\" alt=\"\">\n");
             return buildPhoto.toString();
         }
 
     }
 
     //Класс парсинга ссылок
-    public class NewsLink extends BaseParseClass implements IDataParse {
+    public class NewsComments extends BaseParseClass implements IDataParse {
 
-        private String link;
-        private String author;
-        private List<String> links;
+        private List<String> comments;
 
-        public NewsLink(String id, int group) {
+        public NewsComments(String id, int group) {
             super(id, group);
         }
 
         //region get-set functions
-        public String getAuthor() {
-            return author;
+
+        public List<String> getComments() {
+            return comments;
         }
 
-        public List<String> getLinks() {
-            return links;
-        }
-
-        public String getLink() {
-            return link;
-        }
-
-        public void setLink(String link) {
-            this.link = link;
-        }
-
-        public void setAuthor(String author) {
-            this.author = author;
-        }
-
-        public void setLinks(List<String> links) {
-            this.links = links;
+        public void setComments(List<String> links) {
+            this.comments = links;
         }
         //endregion
 
         public IDataParse parse(WebElement element, PoolData poolData) {
             try {
-                String idPost = element.findElement(By.className("_post")).getAttribute("id");
-                //Парсинг ссылки на пост
-                String link = element.findElement(By.className("post_link")).getAttribute("href");
-                //Парсинг автора
-                String author = "";
-                try {
-                    author = element.findElement(By.className("author")).getAttribute("href");
-                } catch (Exception ignore) {
-                }
+                //Парсинг комментариев
+                final List<String> parseComments = new ArrayList<>();
+                element.findElements(By.className("_ezgzd")).forEach((k) -> {
+                    parseComments.add("[" + k.findElement(By.tagName("a")).getText() + "]\t" + k.findElement(By.tagName("span")).getText());
+                });
 
-                //Парсинг ссылок
-                List<String> links = new ArrayList<>();
-                try {
-                    element.findElement(By.className("wall_post_text"))
-                            .findElements(By.tagName("a"))
-                            .forEach((k) -> links.add(k.getAttribute("href")));
-                } catch (Exception ignore) {
-                }
+                NewsComments newsComments = new NewsComments(getId(), getGroup());
+                newsComments.setComments(parseComments);
+                poolData.push(newsComments);
 
-                NewsLink newsLink = new NewsLink(getId(), getGroup());
-                newsLink.setId(idPost);
-                newsLink.setLink(link);
-                newsLink.setAuthor(author);
-                newsLink.setLinks(links);
-                poolData.push(newsLink);
-
-                return newsLink;
+                return newsComments;
 
             } catch (Exception ignore) {
                 return this;
@@ -267,13 +255,18 @@ public class DataParse implements IMasterDataParse {
 
         @Override
         public String getHtml() {
-            return "<p>Link: " + link + "\n<p>Author: " + author + "\n<p>Links: " + links + "\n";
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("<p>Comments:<p><select>");
+            comments.forEach((e) -> stringBuilder.append("<option>").append(e).append("</option>"));
+            stringBuilder.append("</select>");
+
+            return stringBuilder.toString();
         }
     }
     //endregion
 
     //Класс загрузки фото
-    private class LoadPhoto implements Runnable{
+    private class LoadPhoto implements Runnable {
         private String urlPhoto;
         private String fileName;
 
@@ -304,5 +297,13 @@ public class DataParse implements IMasterDataParse {
                 ex.printStackTrace();
             }
         }
+    }
+
+    public static WebElement findElement(WebElement webElement, By by){
+        List<WebElement> elements = webElement.findElements(by);
+        if(elements.size() > 0){
+            return elements.get(0);
+        }
+        return null;
     }
 }
