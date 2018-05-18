@@ -235,7 +235,6 @@ public class DataParse implements IMasterDataParse {
         //endregion
 
         public IDataParse parse(WebElement element, PoolData poolData) {
-            try {
                 //Парсинг комментариев
                 final List<String> parseComments = new ArrayList<>();
                 element.findElements(By.className("_ezgzd")).forEach((k) -> {
@@ -247,10 +246,6 @@ public class DataParse implements IMasterDataParse {
                 poolData.push(newsComments);
 
                 return newsComments;
-
-            } catch (Exception ignore) {
-                return this;
-            }
         }
 
         @Override

@@ -6,7 +6,6 @@ public class PoolData {
 
     private volatile Map<Integer, List<IDataParse>> pool = new HashMap<>();
 
-    //todo: доделать выгрузку
     public volatile boolean isUnload = false;
 
     //Добавляет файл в очередь на запись

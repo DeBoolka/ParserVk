@@ -167,7 +167,7 @@ public class SQLController {
             try {
                 preparedStatement.setString(2, e);
                 preparedStatement.executeUpdate();
-            } catch (Exception ex) {
+            } catch (Exception ignore) {
             }
         });
         preparedStatement.close();
@@ -192,7 +192,7 @@ public class SQLController {
                 preparedStatement.setString(3, e.getLogin());
                 preparedStatement.setString(4, e.getName());
                 preparedStatement.executeUpdate();
-            } catch (Exception ex) {
+            } catch (Exception ignore) {
             }
         });
         preparedStatement.close();
